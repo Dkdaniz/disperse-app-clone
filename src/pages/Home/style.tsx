@@ -66,7 +66,7 @@ export const Footer = styled.footer`
     }
 `
 
-export const Body = styled.div`
+export const Contents = styled.div`
     display: flex;
     flex-direction: column;
 
@@ -199,8 +199,16 @@ export const Recipients = styled.div`
         border: 0px;
         border-radius: 10px;
 
-        padding: 12px;
+        padding: 18px;
     }
 `;
 
+export const Body = styled.div`
+    display: flex;
+    flex-direction: row
+`
 
+export const IconBody = styled.div`
+    margin-left: 400px;
+    margin-top: 70px;
+`
