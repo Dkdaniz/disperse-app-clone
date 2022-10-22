@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
+import {getProvider, getAbi, disperseInterface} from '../../utils/disperse'
 
 import DisperseIcon from '../../assets/disperse.svg'
 import EtherscanIcon from '../../assets/etherscan.svg'
@@ -9,6 +10,69 @@ import DisperseBody from '../../assets/disperseBody.svg'
 import {Container, Header, Disperse, SocialMediaLink, Link, Footer, Contents, Body, MetamaskWallet, Send, Balance, Recipients, IconBody} from  './style'
 
 const Home: React.FC = () => {
+    const [address, setAddress] = useState('')
+    const [chainId, setChainId] = useState('')
+    const [balance, setBalance] = useState('')
+
+
+    useEffect(() => {
+        connectWallet();
+    })
+
+    useEffect(() => {
+        if(chainId !== '0x6b5' && chainId !== '0x521' && chainId !== '' ){
+            alert('network invalid')
+        }
+    },[chainId])
+
+    useEffect(() => {
+        console.log(address)
+        if(address !== '') getBalance(address)
+    },[address])
+
+    const getBalance = async (address: string) => {
+        const balanceAccount = await (window as any).ethereum.request({method: "eth_getBalance", params: [address, "latest"]})
+        
+        const decimalBalance = parseInt(balanceAccount, 16) / 10 ** 18;
+        setBalance(decimalBalance.toFixed(5).toString());
+    }
+
+    const getinterfaceContract = async () => {
+        const provider = await getProvider((window as any).ethereum);
+        const abi = await getAbi();
+        const disperse = await disperseInterface('0x40f467bC1f56cCADEf91E2EB3BDd77c8Bfe7936F', abi, provider.getSigner())
+
+        return disperse;
+    }
+
+    const disperseEth = async  () => {
+        const disperse = await getinterfaceContract();
+        await disperse.disperseEther()
+    }
+
+    const disperseToken = async () => {
+
+    }
+
+    const connectWallet = async () => {
+        if (typeof window.ethereum !== 'undefined') {
+            const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+            
+            (window as any).ethereum.on('chainChanged', (id: string) => {
+                console.log(id)
+                setChainId(id)
+            });
+
+            (window as any).ethereum.on('accountsChanged', (accounts: Array<string>) => {
+                setAddress(accounts[0])
+            });
+
+            setAddress(accounts[0])
+        }else{
+            console.log('MetaMask no is installed!');
+        }
+    }
+
     return (
         <Container>
             <Header>
@@ -34,8 +98,17 @@ const Home: React.FC = () => {
                     <MetamaskWallet>
                         <h3>Connect to Wallet</h3>
                         <div>
-                            <p>logged in as </p>
-                            <a href={'https://etherscan.io/address/0x0d866B3eBA66968ea0639F78ec91985B8EBBda1D'}>0x0d866B3eBA66968ea0639F78ec91985B8EBBda1D</a>
+                            {address !== '' ? (
+                                <>
+                                    <p>logged in as </p>
+                                    <a href={`https://etherscan.io/address/${address}`}>{address}</a>
+                                </>
+                            ):(
+                                <>
+                                    <button onClick={() => connectWallet()}>Connect</button>
+                                </>
+                            )}
+                            
                         </div>
                     </MetamaskWallet>
                     <Send>
@@ -48,7 +121,7 @@ const Home: React.FC = () => {
                     <Balance>
                         <div>
                             <p>Your balance</p>
-                            <p>2,154</p>
+                            <p>{balance}</p>
                             <p>ETH</p>
                         </div>
                     </Balance>

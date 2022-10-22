@@ -106,6 +106,30 @@ export const MetamaskWallet = styled.div`
         margin-top: 24px;
         text-decoration: none;
     }
+
+    button {
+        width: 100px;
+        height: 40px;
+
+        background: #E5EAF7;
+
+        margin-top: 20px;
+        margin-right: 15px;
+
+        max-width: 150px;
+        max-height: 150px;
+
+        border-radius: 4px;
+        border-width: 0.5px;
+
+        border-color: #1E1E1E;
+
+        &:hover {
+            border-color: #3E66E5;
+            border-width: 1px;
+            color:  #3E66E5;
+        }
+    }
 `;
 
 export const Send = styled.div`
