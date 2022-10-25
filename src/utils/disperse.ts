@@ -1,12 +1,12 @@
 import {ethers} from 'ethers'
 import { jsonAbi } from './disperseAbi'
 
-export const getProvider = (metamask: any) => {
+export const getProviderDisperse = (metamask: any) => {
     const provider =  new ethers.providers.Web3Provider(metamask)
     return provider;
 }
 
-export const getAbi = (): string |Array<string>  => {
+export const getAbiDisperse = (): string |Array<string>  => {
     const iface = new ethers.utils.Interface(jsonAbi);
     const abi = iface.format(ethers.utils.FormatTypes.full);
 

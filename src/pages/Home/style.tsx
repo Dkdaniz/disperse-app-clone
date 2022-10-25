@@ -58,7 +58,7 @@ export const Footer = styled.footer`
     position:flex;
     justify-content: center;
 
-    margin-top: 50px;
+    margin-top: 30px;
 
     p {
         font-size: 14px;
@@ -194,6 +194,10 @@ export const Balance = styled.div`
 export const Recipients = styled.div`
     display: flex;
     flex-direction: column;
+
+    p {
+        margin-top: 15px;
+    }
 
     div {
         display: flex;

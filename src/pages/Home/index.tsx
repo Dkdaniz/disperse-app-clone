@@ -1,8 +1,10 @@
 import React, {useEffect, useState} from 'react';
 import {ethers} from 'ethers';
-import type {BigNumber} from 'ethers';
+import type {BigNumber, Contract} from 'ethers';
 
-import {getProvider, getAbi, disperseInterface} from '../../utils/disperse'
+import {getProviderDisperse, getAbiDisperse, disperseInterface} from '../../utils/disperse'
+import {getProviderERC20, getAbiERC20, erc20Interface} from '../../utils/erc20'
+
 import {networks} from '../../config'
 
 import DisperseIcon from '../../assets/disperse.svg'
@@ -39,16 +41,17 @@ interface ContractParams {
     totalValues: number
 }
 
-// 0x8ab7A8A6e6eFbC725A87CB0F185d0B11C4bd2b0D 0.01
-// 0x1366ca6056668A0F45040C7d01189d575b8374fE,0.02
-// 0x459E15D31956a01808FD1F16375dffBA005ae36A=1.0
+// 0x8ab7A8A6e6eFbC725A87CB0F185d0B11C4bd2b0D 0.001
+// 0x1366ca6056668A0F45040C7d01189d575b8374fE,0.002
+// 0x459E15D31956a01808FD1F16375dffBA005ae36A=0.001
 
 
 const Home: React.FC = () => {
+    const [hash, setHash] =  useState<string>('')
     const [address, setAddress] = useState<string>('')
     const [chainId, setChainId] = useState<string>('')
     const [recepientsAmounts, setRecepientsAmounts] = useState<string>('')
-    const [balance, setBalance] = useState<string>('')
+    const [balanceETH, setBalanceETH] = useState<string>('')
     const [network, setNetwork] = useState<Network>({
         network: '',
         contract: '',
@@ -56,7 +59,7 @@ const Home: React.FC = () => {
         explorer: ''
     })
 
-    const parseRecepientsAmounts = async (): Promise<ContractParams> =>  {
+    const parseRecepientsAmounts = async (balance: string): Promise<ContractParams | undefined> =>  {
         const params = recepientsAmounts.split('\n')
         if(params.length > 2){
             const addresses = [];
@@ -71,7 +74,7 @@ const Home: React.FC = () => {
                 const [addressParam, valueParam] = splitParam;
                 if(addressParam.includes('0x') && ethers.utils.isAddress(addressParam)){
                     addresses.push(addressParam)
-                    values.push(ethers.utils.parseEther(valueParam))
+                    values.push(ethers.utils.parseUnits(valueParam.toString(), "ether"))
                     totalValues += parseFloat(valueParam);
                 }else{
                     addressParam !== '' ? wrongAddress.push({address: addressParam, values: valueParam }) : ''
@@ -79,18 +82,15 @@ const Home: React.FC = () => {
             }
 
             if(wrongAddress.length > 0) alert(`addresses ou values wrong: ${JSON.stringify(wrongAddress)} `)
-
-            if(totalValues > parseFloat(balance)) {
+            if(totalValues < parseFloat(balance)) {
                 if(addresses.length === values.length){
                     return {addresses, values, totalValues};
                 }else{
-                    alert(`addresses and values no is equal`)
+                    throw new Error(`addresses and values no is equal`)
                 }
             }else{
-                alert(`total is greater than balance account`)
+                throw new Error(`total is greater than balance account`)
             }
-
-            return {addresses: [], values: [], totalValues: 0}
         }
     }
 
@@ -99,29 +99,67 @@ const Home: React.FC = () => {
         setRecepientsAmounts(value);
     }
 
-    const getinterfaceContract = () => {
-        const provider = getProvider((window as any).ethereum);
-        const abi = getAbi();
+    const getinterfaceContractDisperse = (): Contract => {
+        const provider = getProviderDisperse((window as any).ethereum);
+        const abi = getAbiDisperse();
         const disperse = disperseInterface(network.contract, abi, provider.getSigner())
 
         return disperse;
     }
 
+    const getinterfaceContractERC20 = (contractAddress: string): Contract  => {
+        const provider = getProviderERC20((window as any).ethereum);
+        const abi = getAbiERC20();
+        const erc20 = erc20Interface(contractAddress, abi, provider.getSigner())
+
+        return erc20;
+    }
+
     const disperseEth = async () => {
         try {
-            const {addresses, values, totalValues} = await parseRecepientsAmounts();
-            const disperse = getinterfaceContract();
-            await disperse.disperseEther([addresses, values], {values: totalValues})
+            setHash('');
+
+            const data = await parseRecepientsAmounts(balanceETH);
+            
+            if(data){
+                const {addresses, values, totalValues} = data;
+                const disperse = getinterfaceContractDisperse();
+                const tx = await disperse.disperseEther(addresses, values, {value: ethers.utils.parseUnits(totalValues.toString(), "ether")});
+                setHash(tx.hash);
+                await tx.wait(1);
+                await getBalanceETH(address);
+            }
         }
         catch (error) {
-            console.log(error)
+            alert(`${error}`)
         }
     }
        
 
     const disperseToken = async () => {
-        const disperse = getinterfaceContract();
-        await disperse.disperseToken()
+        alert('disperse tokens coming soon')
+        // let contractTokenAddress = prompt("Please enter your contract address:");
+        // if(!(contractTokenAddress && ethers.utils.isAddress(contractTokenAddress) && contractTokenAddress?.includes('0x'))){
+        //     return alert('Token address invalid')
+        // }
+
+        // const erc20 = getinterfaceContractERC20(contractTokenAddress);
+        // const balanceToken = await erc20.balanceOf(address);
+
+        // console.log(balanceToken)
+        
+        //  const data = await getinterfaceContractDisperse();
+        // if(data){
+        //     const {addresses, values, totalValues} = data;
+        //     const disperse = getinterfaceContractDisperse();
+        //     const tx = await disperse.disperseEther(addresses, values, {value: ethers.utils.parseUnits(totalValues.toString(), "ether")});
+        //     setHash(tx.hash);
+        //     await tx.wait(1);
+        //     await getBalanceETH(address);
+
+        //     await disperse.disperseToken()
+        // }
+        
     }
 
     const connectWallet = async () => {
@@ -134,6 +172,13 @@ const Home: React.FC = () => {
         }else{
             alert('MetaMask no is installed!');
         }
+    }
+
+    const getBalanceETH = async (address: string) => {
+        const balanceAccount = await (window as any).ethereum.request({method: "eth_getBalance", params: [address, "latest"]})
+        
+        const decimalBalance = parseInt(balanceAccount, 16) / 10 ** 18;
+        setBalanceETH(decimalBalance.toFixed(5).toString());
     }
 
     useEffect(() => {
@@ -159,15 +204,9 @@ const Home: React.FC = () => {
     },[chainId])
 
     useEffect(() => {
-        if(address !== '') getBalance(address)
+        if(address !== '') getBalanceETH(address)
     },[address])
 
-    const getBalance = async (address: string) => {
-        const balanceAccount = await (window as any).ethereum.request({method: "eth_getBalance", params: [address, "latest"]})
-        
-        const decimalBalance = parseInt(balanceAccount, 16) / 10 ** 18;
-        setBalance(decimalBalance.toFixed(5).toString());
-    }
 
     return (
         <Container>
@@ -210,13 +249,13 @@ const Home: React.FC = () => {
                         <h3>Send ether or token</h3>
                         <div>
                             <button onClick={() => {network.chainId !== '' ? disperseEth() : ''}}>ETHER</button>
-                            <button>TOKENS</button>
+                            <button onClick={() => {network.chainId !== '' ? disperseToken() : ''}}>TOKENS</button>
                         </div>
                     </Send>
                     <Balance>
                         <div>
                             <p>Your balance</p>
-                            <p>{balance}</p>
+                            <p>{balanceETH}</p>
                             <p>ETH</p>
                         </div>
                     </Balance>
@@ -230,6 +269,13 @@ const Home: React.FC = () => {
                 <div>
                     <textarea value={recepientsAmounts} onChange={(e) => handleOnChange(e)} placeholder="support any format&#10;0x314ab97b76e39d63c78d5c86c2daf8eaa306b182 3.141592&#10;0x271bffabd0f79b8bd4d7a1c245b7ec5b576ea98a,2.7182&#10;0x141ca95b6177615fb1417cf70e930e102bf8f584=1.41421"></textarea>
                 </div>
+                {hash !== '' ? (
+                    <>
+                        <p>Hash transaction: </p>
+                        <a href={`${network?.explorer}tx/${hash}`}>{hash}</a>
+                    </>
+                ): ''}
+                
             </Recipients>
             <Footer>
                 <Disperse src={DisperseIcon} alt="disperse" width='100px' />
